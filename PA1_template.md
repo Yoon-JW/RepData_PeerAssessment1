@@ -16,6 +16,13 @@ activity$date <- as.Date(activity$date)
 
 ```r
 library(ggplot2)
+```
+
+```
+## Warning: package 'ggplot2' was built under R version 3.2.1
+```
+
+```r
 days <- aggregate(steps~date, activity, sum, na.rm=TRUE)
 qplot(steps, data=days)+labs(title="Total Number of Steps per day", x="number of steps")
 ```
@@ -141,9 +148,4 @@ qplot(interval, steps, data=interval_fill, facets=week~., geom="line")+labs(titl
 ```
 
 ![plot of chunk unnamed-chunk-11](figure/unnamed-chunk-11-1.png) 
-
-
-This is an R MParkdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
