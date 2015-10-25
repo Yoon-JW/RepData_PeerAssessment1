@@ -1,0 +1,88 @@
+# The most impactful weather event to health and economy in U.S.   
+### 25 October 2015    
+
+## Synopsis  
+-**Background**
+Storms and other severe weather events can cause both public health and economic problems. In order to effectively allocate limited resources for reducing such damage, we analyse storm database from the U.S. National Oceanic and Atmospheric Administration's (NOAA). Our purpose is to find out the most harmful event type to population health and economy.  
+
+-**Key Findings**  
+1. **TSTM Wind** turns out **the most harmful weather event to population health** which causes more than 3.6 billion fatalities and injuries.
+  
+2. **Hurricane/Typhoon** has **the greatet economic impact** among other weather event types causing damage on properties and crops more than 9,000 billion dollar worth.
+  
+ 
+## Analysis  
+### Data Processing
+**1. Download the file and store the raw data in csv file**  
+[The Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) from the U.S. National Oceanic and Atmospheric Administration's (NOAA) tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. The events in the database start in the year 1950 and end in November 2011.    
+```{r rawdata, cache=TRUE}
+setInternet2(TRUE)
+url <-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+if(!file.exists("./project2-storm")){dir.create("./project2-storm")}
+download.file(url, dest="./project2-storm/storm.csv.bz2")
+storm <- read.csv(bzfile("./project2-storm/storm.csv.bz2"))
+```
+  
+**2.Extract the relevant information and process it**  
+-Extract the relevant information : event type, public health(fatalities, injuries), economic effect(property damage, crop damage)
+-(Health) Calculate the total number of fatalities and injuries according to the event type
+-(Economy) Derive the exact amount of damages in dollor and then calculate the total amount of damages according to the event type
+-Order the data and pick the 10 highest records
+```{r processing data, cache=TRUE}
+# Extract the relevant information
+storm <- storm[,c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
+
+# (Health) Calculate the total number
+library(plyr)
+storm$FATALITIES = as.numeric(storm$FATALITIES)
+storm$INJURIES = as.numeric(storm$INJURIES)
+storm.health <- ddply(storm, .(EVTYPE), summarize, FATALITIES = sum(FATALITIES, na.rm=TRUE), INJURIES = sum(INJURIES, na.rm=TRUE))
+
+# (Economy) Calculate the total amount
+## Trim down data : data which its damage exceeds zero
+storm$PROPDMG = as.numeric(storm$PROPDMG)
+storm$CROPDMG = as.numeric(storm$CROPDMG)
+storm$PROPDMGEXP <- tolower(storm$PROPDMGEXP)
+storm$CROPDMGEXP <- tolower(storm$CROPDMGEXP)  
+damage <- storm[storm$PROPDMG > 0, c(1, 4:7)]
+damage <- damage[damage$CROPDMG > 0,]
+
+## Multiply the number with its exponential terms : Since we want to know the greatest number, the exponential terms above hundreds only matter. 
+damage$exp.prop <- as.numeric(lapply(damage$PROPDMGEXP, function(x) if (x == "h") 100 else if (x=="k") 10^3 else if (x=="4") 10^4 else if (x=="5") 10^5 else if (x=="m") 10^6 else if (x=="7") 10^7 else if (x=="8") 10^8 else if (x=="b") 10^9 else 0))
+damage$exp.crop <- as.numeric(lapply(damage$CROPDMGEXP, function(x) if (x == "h") 100 else if (x=="k") 10^3 else if (x=="4") 10^4 else if (x=="5") 10^5 else if (x=="m") 10^6 else if (x=="7") 10^7 else if (x=="8") 10^8 else if (x=="b") 10^9 else 0))
+
+damage$prop <- damage$PROPDMG * damage$exp.prop
+damage$crop <- damage$CROPDMG * damage$exp.crop
+
+## Calculate the total dollar amount
+damage.economy <- ddply(damage, .(EVTYPE), summarize, prop=sum(prop), crop=sum(crop))
+
+# Order and pick the 6 hightest records
+health.top <- head(storm.health[order(storm.health$FATALITIES, storm.health$INJURIES, decreasing=TRUE),])
+economy.top <- head(damage.economy[order(damage.economy$prop, damage.economy$crop, decreasing=TRUE),])
+```
+  
+  
+### Result
+**1. The most harmful weather event to population health**
+  
+-**TSTM Wind** turns out the most harmful weather event which causes more than 3.6 billion fatalities and injuries.  
+  
+```{r health, cache=TRUE}
+# Convert the data frame into the matrix for the bar plot
+health.plot <- as.matrix(health.top[,c(2:3)])
+rownames(health.plot) <- tolower(health.top$EVTYPE)
+barplot(t(health.plot), legend.text=c("fatalities", "injuries"), col=c("dark red", "dark orange"), ylab="number of people", main="The harmful weather event to population health", las=2)
+```
+
+**2. The weather event having the greatest economic impact**
+
+-**Hurricane/Typhoon** has the greatet economic impact among other weather event types causing damage on properties and crops more than 9,000 billion dollar worth.
+
+```{r economy, cache=TRUE}
+# Convert the data frame into the matrix for the bar plot
+economy.plot <- as.matrix(economy.top[,c(2:3)])
+rownames(economy.plot) <- tolower(economy.top$EVTYPE)
+barplot(t(economy.plot)/10^9, legend.text=c("property damage", "crop damage"), col=c("purple", "gray"), ylab="dollar amount(in billion)", main="Economic impact of weather event", las=2)
+```
+
